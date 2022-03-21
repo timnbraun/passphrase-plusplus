@@ -40,23 +40,30 @@ SRC = passphrase.cpp
 DICS = en_CA.dic fr_CA.dic sw_TZ.dic
 
 RESDIR = Resources
-RESOURCES = $(addprefix ${RESDIR}/, ${DICS})
+# RESOURCES = $(addprefix ${RESDIR}/, ${DICS})
+RESOURCES = \
+	$(addprefix ${RESDIR}/, ${DICS:.dic=_dict.cpp})
 
 bin : $(BINDIR)/passphrase${EXEEXT}
 
 OBJ = $(addprefix ${OBJDIR}/,$(SRC:.cpp=.o)) \
-	$(addprefix ${OBJDIR}/,$(DICS:.dic=.o))
+	$(addprefix ${OBJDIR}/,$(DICS:.dic=_dict.o))
 
 $(BINDIR)/passphrase${EXEEXT} : $(OBJ) | $(BINDIR)
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) $(OUTPUT_OPTION)
+	$(LINK.cpp) $^ $(LOADLIBES) $(LDLIBS) $(OUTPUT_OPTION)
 
 
 $(OBJDIR)/%.o : %.cpp | $(OBJDIR) ${DEPDIR}
 	$(COMPILE.cpp) $< $(OUTPUT_OPTION)
 
+$(OBJDIR)/%.o : ${RESDIR}/%.cpp | $(OBJDIR) ${DEPDIR}
+	$(COMPILE.cpp) $< $(OUTPUT_OPTION)
+
 $(OBJDIR)/%.o : $(RESDIR)/%.dic | $(OBJDIR)
 	cd $(dir $<) ;\
 	$(LD) -r -b binary $(notdir $<) -o ../$@
+
+$(RESDIR)/%_dict.cpp : 
 
 $(BINDIR) ${RESDIR} ${OBJDIR} ${DEPDIR} : ; mkdir -p $@
 
@@ -70,8 +77,10 @@ resources: ${RESOURCES} | ${RESDIR}
 DICTDIRS = /usr/share/myspell /usr/share/hunspell
 DICT_BIG_LIST = $(foreach d,${DICTDIRS},$(addprefix $d/, ${DICS}))
 DICT_SRC = $(wildcard $(DICT_BIG_LIST))
-${RESOURCES} : ${DICT_SRC} | ${RESDIR}
-	cp $^ $(dir $@)
+# ${RESOURCES} : ${DICT_SRC} | ${RESDIR}
+# $(info  : $(wildcard $(DICTDIRS))/%.dic | ${RESDIR})
+${RESDIR}/%_dict.cpp : /usr/share/hunspell/%.dic | ${RESDIR}
+	python3 process_dict.py $< $@
 
 # Check if we're making the clean target; only include
 # dependencies if we AREN'T
