@@ -21,33 +21,9 @@ using std::endl;
 using std::string;
 using std::deque;
 
-#if defined(OBJECT_WRAPPER)
-extern const char _binary_en_CA_dic_start[];
-extern const char _binary_en_CA_dic_end[];
 
-extern const char _binary_fr_CA_dic_start[];
-extern const char _binary_fr_CA_dic_end[];
-
-extern const char _binary_sw_TZ_dic_start[];
-extern const char _binary_sw_TZ_dic_end[];
-
-#define DICT_SIZE( x ) \
-	(uintptr_t)(_binary_ ## x ## _dic_end - _binary_ ## x ## _dic_start)
-
-struct Dictionary {
-	uintptr_t size;
-	const char *start;
-	const char *end;
-	string name;
-};
-
-const Dictionary dictionary[] = {
-	{ DICT_SIZE( en_CA ), _binary_en_CA_dic_start, _binary_en_CA_dic_end, "en_CA" },
-	{ DICT_SIZE( fr_CA ), _binary_fr_CA_dic_start, _binary_fr_CA_dic_end, "fr_CA" },
-	{ DICT_SIZE( sw_TZ ), _binary_sw_TZ_dic_start, _binary_sw_TZ_dic_end, "sw_TZ" },
-	{}
-};
-#else
+#define DICT_ENTRY( x ) \
+	x ## _dict_size, # x, x ## _dict
 
 struct Dictionary {
 	size_t size;
@@ -63,12 +39,11 @@ extern const string sw_TZ_dict[];
 extern const size_t sw_TZ_dict_size;
 
 const Dictionary dictionary[] = {
-	{ en_CA_dict_size, "en_CA", en_CA_dict },
-	{ fr_CA_dict_size, "fr_CA", fr_CA_dict },
-	{ sw_TZ_dict_size, "sw_TZ", sw_TZ_dict },
+	{ DICT_ENTRY( en_CA ) },
+	{ DICT_ENTRY( fr_CA ) },
+	{ DICT_ENTRY( sw_TZ ) },
 	{}
 };
-#endif
 
 std::random_device rd;
 std::mt19937 gen(rd());
@@ -107,7 +82,7 @@ string random_word(
 			candidate = candidate.substr(0, slash);
 		}
 	}
-	while ((want_apostrophe && (apostrophe == string::npos)) || 
+	while ((want_apostrophe && (apostrophe == string::npos)) ||
 		(candidate.size() < 2 || candidate.size() > 9));
 
 	return candidate;
@@ -141,8 +116,6 @@ int main(int argc, char *argv[])
 {
 	string lang = "en_CA";
 
-	cout << "Hello, world!\nReady for some passwords?" << endl;
-
 	int ch;
 	while ((ch = getopt_long(argc, argv, "acnl:vV", opts, NULL)) != -1) {
 		switch (ch) {
@@ -156,7 +129,8 @@ int main(int argc, char *argv[])
 			numbers = true;
 			break;
 		case 'v':
-			cout << "V0.00" << endl;
+			cout << "V0.00-" VERSION << endl;
+			exit(0);
 			break;
 		case 'V':
 			verbose = true;
@@ -175,26 +149,25 @@ int main(int argc, char *argv[])
 	}
 
 	if (verbose) {
+		cout << "Hello, world!\nReady for some passwords?" << endl;
 		for (auto i : dictionary) {
 			if (i.size == 0)
 				continue;
-			cout << i.name << " is : " << std::hex << std::showbase << i.size << 
+			cout << i.name << " is : " << i.size << std::hex << std::showbase <<
 				" bytes, start = " << (intptr_t)i.words << endl;
 		}
 	}
 
-	Dictionary working_dictionary_;
-	const Dictionary *working_dictionary = &working_dictionary_;
+	const Dictionary *working_dictionary = &dictionary[0];
 	for (auto d : dictionary) {
 		if (d.size == 0)
 			continue;
 		if (d.name == lang) {
-			working_dictionary_ = d;
-			cout << "Got lang " << d.name <<
-				", start = " << (intptr_t)d.words << endl;
+			cout << "Got lang " << d.name << ", size = " << d.size << endl;
 			break;
 		}
 		cout << d.name << " != " << lang << endl;
+		working_dictionary++;
 	}
 	if (!working_dictionary) {
 		help(basename(argv[0]));
@@ -207,7 +180,8 @@ int main(int argc, char *argv[])
 
 	uint32_t i = 0;
 	for (i = 0; i < working_dictionary->size; i++) {
-		if (working_dictionary->words[i] == "")
+		if ((working_dictionary->words[i] == "") ||
+			(working_dictionary->words[i].empty()))
 			break;
 		string_dict.push_back( working_dictionary->words[i] );
 		if (i > working_dictionary->size) {
@@ -228,12 +202,16 @@ int main(int argc, char *argv[])
 
 	std::uniform_int_distribution<> distrib(0, string_dict.size());
 
-	cout << "Here are random words : " << endl;
-	for (int i = 0; i < 6; i++)
-		cout << " " << random_word( distrib, string_dict, altchars ) << endl;
+	if (verbose) {
+		cout << "Here are random words : " << endl;
+		for (int i = 0; i < 6; i++)
+			cout << " " << random_word( distrib, string_dict, altchars ) << endl;
+	}
+
 	cout << "Here are random phrases : " << endl;
 	for (int i = 0; i < 6; i++)
 		cout << " " << phrase( distrib, string_dict, caps, altchars ) << endl;
+
 	if (verbose) {
 		cout << "caps = " << caps << ", altchars = " << altchars << ", numbers = " << numbers << endl;
 	}
