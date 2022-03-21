@@ -14,6 +14,8 @@ BINDIR = bin/$(Configuration)
 OBJDIR = obj/$(Configuration)
 DEPDIR := .deps
 
+DIRTY = $(shell git diff-index --quiet HEAD || echo -dirty)
+VERSION = $(shell git rev-parse --short HEAD)$(DIRTY)
 
 # auto-dependency files
 DEPFLAGS = -MMD -MP -MF $(DEPDIR)/$(@F:.o=.d)
@@ -52,6 +54,8 @@ OBJ = $(addprefix ${OBJDIR}/,$(SRC:.cpp=.o)) \
 $(BINDIR)/passphrase${EXEEXT} : $(OBJ) | $(BINDIR)
 	$(LINK.cpp) $^ $(LOADLIBES) $(LDLIBS) $(OUTPUT_OPTION)
 
+
+$(OBJDIR)/passphrase.o: CXXFLAGS += -DVERSION=\"${VERSION}\"
 
 $(OBJDIR)/%.o : %.cpp | $(OBJDIR) ${DEPDIR}
 	$(COMPILE.cpp) $< $(OUTPUT_OPTION)
