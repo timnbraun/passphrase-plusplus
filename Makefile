@@ -75,17 +75,20 @@ $(BINDIR) ${RESDIR} ${OBJDIR} ${DEPDIR} : ; mkdir -p $@
 .PHONY: clean bin all install resources
 
 clean :
-	$(RM) -r bin obj ${DEPDIR}
+	$(RM) -r bin obj ${DEPDIR} ${RESDIR}
 
 resources : ${RESOURCES}
-${RESOURCES} : ${RESDIR} process_dict.py
 
 DICTDIRS = /usr/share/myspell /usr/share/hunspell
 DICT_BIG_LIST = $(foreach d,${DICTDIRS},$(addprefix $d/, ${DICS}))
 DICT_SRC = $(wildcard $(DICT_BIG_LIST))
 
-${RESDIR}/%_dict.cpp : $(filter %.dic,$(DICT_SRC)) | ${RESDIR} process_dict.py
-	python3 process_dict.py $< $@
+${RESOURCES} : ${DICT_SRC} | ${RESDIR} process_dict.py
+	@echo "Processing $(filter %$(notdir ${@:_dict.cpp=}).dic,${DICT_SRC}) --> $@"
+	@python3 process_dict.py $(filter %$(notdir ${@:_dict.cpp=.dic}),$^) $@ 
+
+# ${RESDIR}/%_dict.cpp : $(filter %.dic,$(DICT_SRC)) | ${RESDIR} process_dict.py
+# 	python3 process_dict.py $< $@
 
 # Check if we're making the clean target; only include
 # dependencies if we AREN'T

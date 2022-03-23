@@ -19,15 +19,14 @@ def process(dict_name, cpp_name):
 	(lang, ext) = os.path.splitext(os.path.basename(cpp_name))
 	with open(cpp_name, 'w') as cpp:
 		print('#include <cstddef>', file=cpp)
-		# print('using std::string;', file=cpp)
-		print('const char *{}[] = {{'.format(lang), file=cpp )
+		print('extern const char {}[] = {{'.format(lang), file=cpp )
 		for word in dict[1:-1]:
 			clean_word = clean(word)
 			if (len(clean_word) > 2 and len(clean_word) < 12):
-				print( '\t\"', clean_word, file=cpp, end='\",\n', sep='' )
+				print( '\t\"', clean_word, file=cpp, end='\\0\"\n', sep='' )
 		print('\t\"\",', file=cpp)
 		print('};', file=cpp)
-		print('extern const size_t {0}_size = sizeof({0})/sizeof(char *);'.format(lang), file=cpp)
+		print('extern const size_t {0}_size = sizeof({0});'.format(lang), file=cpp)
 
 
 if (len(sys.argv) == 3):
@@ -35,8 +34,9 @@ if (len(sys.argv) == 3):
 	process(sys.argv[1], sys.argv[2])
 
 else:
-	process(EN_DICT, 'en_CA_dict.cpp')
-	process(FR_DICT, 'fr_CA_dict.cpp')
-	process(SW_DICT, 'sw_TZ_dict.cpp')
+	print("usage: process_dict.py /shared/dictionary.dic generated_source/dictionary_dict.cpp")
+	# process(EN_DICT, 'en_CA_dict.cpp')
+	# process(FR_DICT, 'fr_CA_dict.cpp')
+	# process(SW_DICT, 'sw_TZ_dict.cpp')
 
 

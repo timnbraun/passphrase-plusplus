@@ -30,14 +30,14 @@ typedef const char *charptr_t;
 struct Dictionary {
 	size_t size;
 	string name;
-	charptr_t *words;
+	charptr_t words;
 };
 
-extern const char *en_CA_dict[];
+extern const char en_CA_dict[];
 extern const size_t en_CA_dict_size;
-extern const char *fr_CA_dict[];
+extern const char fr_CA_dict[];
 extern const size_t fr_CA_dict_size;
-extern const char *sw_TZ_dict[];
+extern const char sw_TZ_dict[];
 extern const size_t sw_TZ_dict_size;
 
 const Dictionary dictionary[] = {
@@ -53,14 +53,17 @@ std::mt19937 gen(rd());
 int caps = 0, numbers = 0, altchars = 0, verbose = 0;
 
 static struct option opts[] = {
-	{"help", no_argument, 0, '?'},
-	{"usage", no_argument, 0, '?'},
-	{"caps", no_argument, &caps, 1},
-	{"numbers", no_argument, &numbers, 1},
-	{"alt-chars", no_argument, &altchars, 1},
-	{"lang", required_argument, 0, 'l'},
-	{"verbose", no_argument, 0, 'V'},
-	{"version", no_argument, 0, 'v'},
+	{"help",         no_argument,       0,         '?'},
+	{"usage",        no_argument,       0,         '?'},
+	{"caps",         no_argument,       &caps,     1  },
+	{"no-caps",      no_argument,       &caps,     0  },
+	{"numbers",      no_argument,       &numbers,  1  },
+	{"no-numbers",   no_argument,       &numbers,  0  },
+	{"alt-chars",    no_argument,       &altchars, 1  },
+	{"no-alt-chars", no_argument,       &altchars, 0  },
+	{"lang",         required_argument, 0,         'l'},
+	{"verbose",      no_argument,       &verbose,  1  },
+	{"version",      no_argument,       0,         'v'},
 	{}
 };
 
@@ -91,7 +94,8 @@ string random_word(
 }
 
 string phrase(
-	std::uniform_int_distribution<> &dist, deque<const char *> &dict, bool cap, bool want_alt)
+	std::uniform_int_distribution<> &dist, deque<const char *> &dict, 
+		bool cap, bool want_alt)
 {
 	if (dict.size() == 0)
 		return "";
@@ -107,6 +111,28 @@ string phrase(
 		have_alt = p.find( '\'' ) != string::npos;
 	}
 	return p;
+}
+
+deque<const char *>parse_dict(const char *words, size_t size)
+{
+	deque<const char *>new_dict;
+
+	size_t i = 0;
+	const char *word_start = words;
+	for (i = 0; i < size; i++, words++) {
+
+		if (*words == '\0') {
+			new_dict.push_back( word_start );
+			word_start = words + 1;
+		}
+
+		if (i > size) {
+			cout << "what? i = " << i << ", size = " << size << endl;
+			break;
+		}
+	}
+
+	return new_dict;
 }
 
 void help(string prog)
@@ -144,9 +170,12 @@ int main(int argc, char *argv[])
 			help(basename(argv[0]));
 			exit(1);
 		case 0:
-			if (optind < argc)
-				help(basename(argv[0]));
-			else break;
+			if (argc > optind) {
+				if (verbose) {
+					cout << optind << " : " << argv[optind] << endl;
+				}
+			}
+			break;
 		}
 	}
 
@@ -177,31 +206,24 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	cout << "working word count = " << std::dec << working_dictionary->size << endl;
-	cout << "first word  : " << working_dictionary->words[0] << endl;
-
-	deque<const char *> string_dict;
-
-	uint32_t i = 0;
-	for (i = 0; i < working_dictionary->size; i++) {
-		if (*(working_dictionary->words[i]) == '\0')
-			break;
-		string_dict.push_back( working_dictionary->words[i] );
-		if (i > working_dictionary->size) {
-			cout << "what? i = " << i << ", size = " << working_dictionary->size << endl;
-			break;
-		}
+	if (verbose) {
+		cout << "working dict size = " << std::dec << working_dictionary->size << endl;
+		cout << "first word : " << working_dictionary->words << endl;
 	}
 
-	cout << "done: i = " << i << ", size = " << working_dictionary->size <<
-		", string_dict->size() = " << string_dict.size() << endl;
+	deque<const char *> string_dict = parse_dict(working_dictionary->words,
+		working_dictionary->size );
+
 	if (string_dict.size() == 0) {
 		cout << "There are no words..." << endl;
 		exit(1);
 	}
-	cout << "There are " << std::dec << string_dict.size() << " words." << endl;
-	cout << "first word  : " << string_dict[0] << endl;
-	// cout << "second word : " << string_dict[1].size() << ", " << string_dict[1] << endl;
+
+	if (verbose) {
+		cout << "There are " << std::dec << string_dict.size() << " words." << endl;
+		cout << "first word : " << string_dict[0] << endl;
+		// cout << "second word : " << string_dict[1].size() << ", " << string_dict[1] << endl;
+	}
 
 	std::uniform_int_distribution<> distrib(0, string_dict.size());
 
