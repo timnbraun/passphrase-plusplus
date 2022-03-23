@@ -18,16 +18,16 @@ def process(dict_name, cpp_name):
 	dict = get_dict(dict_name)
 	(lang, ext) = os.path.splitext(os.path.basename(cpp_name))
 	with open(cpp_name, 'w') as cpp:
-		print('#include <string>', file=cpp)
-		print('using std::string;', file=cpp)
-		print('extern const string {}[] = {{'.format(lang), file=cpp )
+		print('#include <cstddef>', file=cpp)
+		# print('using std::string;', file=cpp)
+		print('const char *{}[] = {{'.format(lang), file=cpp )
 		for word in dict[1:-1]:
 			clean_word = clean(word)
 			if (len(clean_word) > 2 and len(clean_word) < 12):
 				print( '\t\"', clean_word, file=cpp, end='\",\n', sep='' )
 		print('\t\"\",', file=cpp)
 		print('};', file=cpp)
-		print('extern const size_t {0}_size = sizeof({0});'.format(lang), file=cpp)
+		print('extern const size_t {0}_size = sizeof({0})/sizeof(char *);'.format(lang), file=cpp)
 
 
 if (len(sys.argv) == 3):

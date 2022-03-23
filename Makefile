@@ -16,6 +16,7 @@ DEPDIR := .deps
 
 DIRTY = $(shell git diff-index --quiet HEAD || echo -dirty)
 VERSION = $(shell git rev-parse --short HEAD)$(DIRTY)
+DATE = $(shell date '+%y/%m/%d')
 
 # auto-dependency files
 DEPFLAGS = -MMD -MP -MF $(DEPDIR)/$(@F:.o=.d)
@@ -55,7 +56,7 @@ $(BINDIR)/passphrase${EXEEXT} : $(OBJ) | $(BINDIR)
 	$(LINK.cpp) $^ $(LOADLIBES) $(LDLIBS) $(OUTPUT_OPTION)
 
 
-$(OBJDIR)/passphrase.o: CXXFLAGS += -DVERSION=\"${VERSION}\"
+$(OBJDIR)/passphrase.o: CXXFLAGS += -DVERSION=\"${VERSION}\" -DDATE=\"${DATE}\"
 
 $(OBJDIR)/%.o : %.cpp | $(OBJDIR) ${DEPDIR}
 	$(COMPILE.cpp) $< $(OUTPUT_OPTION)
@@ -76,14 +77,14 @@ $(BINDIR) ${RESDIR} ${OBJDIR} ${DEPDIR} : ; mkdir -p $@
 clean :
 	$(RM) -r bin obj ${DEPDIR}
 
-resources: ${RESOURCES} | ${RESDIR}
+resources : ${RESOURCES}
+${RESOURCES} : ${RESDIR} process_dict.py
 
 DICTDIRS = /usr/share/myspell /usr/share/hunspell
 DICT_BIG_LIST = $(foreach d,${DICTDIRS},$(addprefix $d/, ${DICS}))
 DICT_SRC = $(wildcard $(DICT_BIG_LIST))
-# ${RESOURCES} : ${DICT_SRC} | ${RESDIR}
-# $(info  : $(wildcard $(DICTDIRS))/%.dic | ${RESDIR})
-${RESDIR}/%_dict.cpp : /usr/share/hunspell/%.dic | ${RESDIR}
+
+${RESDIR}/%_dict.cpp : $(filter %.dic,$(DICT_SRC)) | ${RESDIR} process_dict.py
 	python3 process_dict.py $< $@
 
 # Check if we're making the clean target; only include

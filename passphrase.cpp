@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cctype>
 #include <cstring>
+#include <cstddef>
 #include <string>
 #include <sstream>
 #include <deque>
@@ -25,17 +26,18 @@ using std::deque;
 #define DICT_ENTRY( x ) \
 	x ## _dict_size, # x, x ## _dict
 
+typedef const char *charptr_t;
 struct Dictionary {
 	size_t size;
 	string name;
-	const string *words;
+	charptr_t *words;
 };
 
-extern const string en_CA_dict[];
+extern const char *en_CA_dict[];
 extern const size_t en_CA_dict_size;
-extern const string fr_CA_dict[];
+extern const char *fr_CA_dict[];
 extern const size_t fr_CA_dict_size;
-extern const string sw_TZ_dict[];
+extern const char *sw_TZ_dict[];
 extern const size_t sw_TZ_dict_size;
 
 const Dictionary dictionary[] = {
@@ -63,14 +65,14 @@ static struct option opts[] = {
 };
 
 string random_word(
-	std::uniform_int_distribution<> &dist, deque<string> &dict,
+	std::uniform_int_distribution<> &dist, deque<const char *> &dict,
 	bool want_apostrophe = false)
 {
 	string candidate;
 	string::size_type apostrophe = string::npos;
 
-	// if (dict.size() == 0)
-	// 	return "";
+	if (dict.size() == 0)
+		return "";
 
 	do {
 		candidate = dict[ dist(gen) ];
@@ -89,7 +91,7 @@ string random_word(
 }
 
 string phrase(
-	std::uniform_int_distribution<> &dist, deque<string> &dict, bool cap, bool want_alt)
+	std::uniform_int_distribution<> &dist, deque<const char *> &dict, bool cap, bool want_alt)
 {
 	if (dict.size() == 0)
 		return "";
@@ -129,7 +131,7 @@ int main(int argc, char *argv[])
 			numbers = true;
 			break;
 		case 'v':
-			cout << "V0.00-" VERSION << endl;
+			cout << "V0.01-" VERSION << " built " << DATE << endl;
 			exit(0);
 			break;
 		case 'V':
@@ -153,8 +155,9 @@ int main(int argc, char *argv[])
 		for (auto i : dictionary) {
 			if (i.size == 0)
 				continue;
-			cout << i.name << " is : " << i.size << std::hex << std::showbase <<
-				" bytes, start = " << (intptr_t)i.words << endl;
+			cout << i.name << " is : " << std::dec << i.size <<
+				" words, start = " <<
+				std::hex << std::showbase << (intptr_t)i.words << endl;
 		}
 	}
 
@@ -174,14 +177,14 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	cout << "working = " << std::dec << working_dictionary->size << endl;
+	cout << "working word count = " << std::dec << working_dictionary->size << endl;
+	cout << "first word  : " << working_dictionary->words[0] << endl;
 
-	deque<string> string_dict;
+	deque<const char *> string_dict;
 
 	uint32_t i = 0;
 	for (i = 0; i < working_dictionary->size; i++) {
-		if ((working_dictionary->words[i] == "") ||
-			(working_dictionary->words[i].empty()))
+		if (*(working_dictionary->words[i]) == '\0')
 			break;
 		string_dict.push_back( working_dictionary->words[i] );
 		if (i > working_dictionary->size) {
@@ -197,7 +200,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	cout << "There are " << std::dec << string_dict.size() << " words." << endl;
-	cout << "first word  : " << string_dict[0].size() << ", " << string_dict[0] << endl;
+	cout << "first word  : " << string_dict[0] << endl;
 	// cout << "second word : " << string_dict[1].size() << ", " << string_dict[1] << endl;
 
 	std::uniform_int_distribution<> distrib(0, string_dict.size());
