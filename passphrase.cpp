@@ -17,40 +17,36 @@
 #include <getopt.h>
 #include <libgen.h>
 
-using std::cout;
-using std::endl;
-using std::string;
-using std::deque;
+#include <en_CA_dict.h>
+#include <fr_CA_dict.h>
+#include <sw_TZ_dict.h>
 
+using namespace std;
 
 #define DICT_ENTRY( x ) \
-	x ## _dict_size, # x, x ## _dict
+	# x, x ## _dict_size, x ## _dict_count, x ## _dict
 
 typedef const char *charptr_t;
-struct Dictionary {
-	size_t size;
+struct RawDictionary {
 	string name;
+	size_t size;
+	size_t count;
 	charptr_t words;
 };
 
-extern const char en_CA_dict[];
-extern const size_t en_CA_dict_size;
-extern const char fr_CA_dict[];
-extern const size_t fr_CA_dict_size;
-extern const char sw_TZ_dict[];
-extern const size_t sw_TZ_dict_size;
+typedef deque<const char *> Dictionary;
 
-const Dictionary dictionary[] = {
+const RawDictionary dictionary[] = {
 	{ DICT_ENTRY( en_CA ) },
 	{ DICT_ENTRY( fr_CA ) },
 	{ DICT_ENTRY( sw_TZ ) },
 	{}
 };
 
-std::random_device rd;
-std::mt19937 gen(rd());
+random_device rd;
+mt19937 gen(rd());
 
-int caps = 0, numbers = 0, altchars = 0, verbose = 0;
+int caps = 1, numbers = 1, altchars = 1, verbose = 0;
 
 static struct option opts[] = {
 	{"help",         no_argument,       0,         '?'},
@@ -67,79 +63,32 @@ static struct option opts[] = {
 	{}
 };
 
+/////////////////
+//
+// Forward function declarations
+//
+/////////////////
 string random_word(
-	std::uniform_int_distribution<> &dist, deque<const char *> &dict,
-	bool want_apostrophe = false)
-{
-	string candidate;
-	string::size_type apostrophe = string::npos;
-
-	if (dict.size() == 0)
-		return "";
-
-	do {
-		candidate = dict[ dist(gen) ];
-		if (want_apostrophe)
-			apostrophe = candidate.find( '\'' );
-
-		string::size_type slash = candidate.rfind( '/' );
-		if (slash != string::npos) {
-			candidate = candidate.substr(0, slash);
-		}
-	}
-	while ((want_apostrophe && (apostrophe == string::npos)) ||
-		(candidate.size() < 2 || candidate.size() > 9));
-
-	return candidate;
-}
+	uniform_int_distribution<> &dist, Dictionary &dict,
+	bool want_apostrophe = false);
 
 string phrase(
-	std::uniform_int_distribution<> &dist, deque<const char *> &dict, 
-		bool cap, bool want_alt)
-{
-	if (dict.size() == 0)
-		return "";
+	uniform_int_distribution<> &dist, Dictionary &dict,
+		bool cap = false, bool want_alt = false, bool num = false);
 
-	string p = random_word(dist, dict, false);
+Dictionary parse_dict(const char *words, size_t size);
 
-	bool have_alt = false;
-	while (p.length() < 12) {
-		string next = random_word(dist, dict, want_alt ^ have_alt);
-		if (cap)
-			next[0] = toupper(next[0]);
-		p += next;
-		have_alt = p.find( '\'' ) != string::npos;
-	}
-	return p;
-}
 
-deque<const char *>parse_dict(const char *words, size_t size)
-{
-	deque<const char *>new_dict;
-
-	size_t i = 0;
-	const char *word_start = words;
-	for (i = 0; i < size; i++, words++) {
-
-		if (*words == '\0') {
-			new_dict.push_back( word_start );
-			word_start = words + 1;
-		}
-
-		if (i > size) {
-			cout << "what? i = " << i << ", size = " << size << endl;
-			break;
-		}
-	}
-
-	return new_dict;
-}
-
-void help(string prog)
+void inline help(string prog)
 {
 	cout << prog << " [-hcnavV] [-l en_CA | fr_CA | sw_TZ ]" << endl;
 }
 
+//////////////////////
+//
+//  main
+//
+//////////////////////
 int main(int argc, char *argv[])
 {
 	string lang = "en_CA";
@@ -182,23 +131,25 @@ int main(int argc, char *argv[])
 	if (verbose) {
 		cout << "Hello, world!\nReady for some passwords?" << endl;
 		for (auto i : dictionary) {
-			if (i.size == 0)
+			if (i.size == 0 || i.count == 0)
 				continue;
-			cout << i.name << " is : " << std::dec << i.size <<
-				" words, start = " <<
-				std::hex << std::showbase << (intptr_t)i.words << endl;
+			cout << i.name << " is : " << dec << i.count << " words, " << i.size <<
+				" characters, start = " <<
+				hex << showbase << (intptr_t)i.words << endl;
 		}
 	}
 
-	const Dictionary *working_dictionary = &dictionary[0];
+	const RawDictionary *working_dictionary = &dictionary[0];
 	for (auto d : dictionary) {
 		if (d.size == 0)
 			continue;
 		if (d.name == lang) {
-			cout << "Got lang " << d.name << ", size = " << d.size << endl;
+			if (verbose)
+				cout << "Got lang " << d.name << ", size = " << d.count << endl;
 			break;
 		}
-		cout << d.name << " != " << lang << endl;
+		if (verbose)
+			cout << d.name << " != " << lang << endl;
 		working_dictionary++;
 	}
 	if (!working_dictionary) {
@@ -207,11 +158,11 @@ int main(int argc, char *argv[])
 	}
 
 	if (verbose) {
-		cout << "working dict size = " << std::dec << working_dictionary->size << endl;
-		cout << "first word : " << working_dictionary->words << endl;
+		cout << "working dict size = " << dec << working_dictionary->size
+			<< "chars, first word : " << working_dictionary->words << endl;
 	}
 
-	deque<const char *> string_dict = parse_dict(working_dictionary->words,
+	Dictionary string_dict = parse_dict(working_dictionary->words,
 		working_dictionary->size );
 
 	if (string_dict.size() == 0) {
@@ -220,12 +171,11 @@ int main(int argc, char *argv[])
 	}
 
 	if (verbose) {
-		cout << "There are " << std::dec << string_dict.size() << " words." << endl;
-		cout << "first word : " << string_dict[0] << endl;
-		// cout << "second word : " << string_dict[1].size() << ", " << string_dict[1] << endl;
+		cout << "There are " << dec << string_dict.size() <<
+			" words, first word : " << string_dict[0] << endl;
 	}
 
-	std::uniform_int_distribution<> distrib(0, string_dict.size());
+	uniform_int_distribution<> distrib(0, string_dict.size() - 1);
 
 	if (verbose) {
 		cout << "Here are random words : " << endl;
@@ -233,12 +183,130 @@ int main(int argc, char *argv[])
 			cout << " " << random_word( distrib, string_dict, altchars ) << endl;
 	}
 
-	cout << "Here are random phrases : " << endl;
-	for (int i = 0; i < 6; i++)
-		cout << " " << phrase( distrib, string_dict, caps, altchars ) << endl;
+	if (verbose)
+		cout << "Here are random phrases : " << endl;
+
+	/////////
+	//
+	//  The big reveal: a list of random phrases
+	//
+	/////////
+	for (int i = 0; i < 5; i++)
+		cout << phrase( distrib, string_dict, caps, altchars, numbers ) << endl;
 
 	if (verbose) {
 		cout << "caps = " << caps << ", altchars = " << altchars << ", numbers = " << numbers << endl;
 	}
 	return 0;
+}
+
+static char replacements[] = { '%', '_', '-', '+', '*' };
+
+static uniform_int_distribution<> replacement_dist(0, sizeof(replacements) - 1);
+
+string random_word(
+	uniform_int_distribution<> &dist, Dictionary &dict,
+	bool want_apostrophe)
+{
+	string candidate;
+	string::size_type apostrophe = string::npos;
+
+	if (dict.size() == 0)
+		return "";
+
+	do {
+		candidate = dict[ dist(gen) ];
+		if (want_apostrophe)
+			apostrophe = candidate.find( '\'' );
+
+		string::size_type slash = candidate.rfind( '/' );
+		if (slash != string::npos) {
+			candidate = candidate.substr(0, slash);
+		}
+	}
+	while ((want_apostrophe && (apostrophe == string::npos)) ||
+		(candidate.size() < 2 || candidate.size() > 6));
+
+	if (apostrophe != string::npos) {
+		char replacement = replacements[ replacement_dist(gen) ];
+		candidate[apostrophe] = replacement;
+	}
+
+	return candidate;
+}
+
+string phrase(
+	uniform_int_distribution<> &dist, Dictionary &dict,
+		bool cap, bool want_alt, bool num)
+{
+	if (dict.size() == 0)
+		return "";
+
+	string p = random_word(dist, dict, false);
+
+	bool have_alt = false;
+	while (p.length() < 12) {
+		string next = random_word(dist, dict, want_alt ^ have_alt);
+		if (cap)
+			next[0] = toupper(next[0]);
+		p += next;
+		have_alt = p.find_first_of( replacements ) != string::npos;
+	}
+
+	string::size_type num_pos = string::npos;
+	if (num) {
+		string l33t_chars = "beostzBEOSTZ";
+
+		num_pos = p.find_first_of( l33t_chars );
+		if (num_pos != string::npos) {
+			switch (tolower(p[num_pos])) {
+			case 'b':
+				p[num_pos] = '8';
+			break;
+			case 'e':
+				p[num_pos] = '3';
+			break;
+			case 'o':
+				p[num_pos] = '0';
+			break;
+			case 's':
+				p[num_pos] = '5';
+			break;
+			case 't':
+				p[num_pos] = '7';
+			break;
+			case 'z':
+				p[num_pos] = '2';
+			break;
+			}
+		}
+		else {
+			// do we need to limit the recursion?
+			return phrase(dist, dict, cap, want_alt, num );
+		}
+	}
+	return p;
+}
+
+
+Dictionary parse_dict(const char *words, size_t size)
+{
+	Dictionary new_dict;
+
+	size_t i = 0;
+	const char *word_start = words;
+	for (i = 0; i < size && *word_start != '\0'; i++, words++) {
+
+		if (*words == '\0') {
+			new_dict.push_back( word_start );
+			word_start = words + 1;
+		}
+
+		if (i > size) {
+			cout << "what? i = " << i << ", size = " << size << endl;
+			break;
+		}
+	}
+
+	return new_dict;
 }
