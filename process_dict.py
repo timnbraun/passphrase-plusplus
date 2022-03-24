@@ -20,14 +20,21 @@ def process(dict_name, cpp_name):
 	with open(cpp_name, 'w') as cpp:
 		print('#include <cstddef>', file=cpp)
 		print('extern const char {}[] = {{'.format(lang), file=cpp )
+		written_count = 0
 		for word in dict[1:-1]:
 			clean_word = clean(word)
 			if (len(clean_word) > 2 and len(clean_word) < 12):
 				print( '\t\"', clean_word, file=cpp, end='\\0\"\n', sep='' )
+				written_count = written_count + 1
 		print('\t\"\",', file=cpp)
 		print('};', file=cpp)
 		print('extern const size_t {0}_size = sizeof({0});'.format(lang), file=cpp)
-
+		print('extern const size_t {0}_count = {1};'.format(lang, written_count),
+				file=cpp)
+	with open(cpp_name.replace('.cpp', '.h', 1), 'w') as header:
+		print('extern const char {0}[];'.format(lang), file=header)
+		print('extern const size_t {0}_size;'.format(lang), file=header)
+		print('extern const size_t {0}_count;'.format(lang), file=header)
 
 if (len(sys.argv) == 3):
 	print(sys.argv[1], "-->", sys.argv[2])
@@ -35,8 +42,3 @@ if (len(sys.argv) == 3):
 
 else:
 	print("usage: process_dict.py /shared/dictionary.dic generated_source/dictionary_dict.cpp")
-	# process(EN_DICT, 'en_CA_dict.cpp')
-	# process(FR_DICT, 'fr_CA_dict.cpp')
-	# process(SW_DICT, 'sw_TZ_dict.cpp')
-
-
