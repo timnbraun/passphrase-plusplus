@@ -22,7 +22,7 @@ DATE = $(shell date '+%y/%m/%d')
 DEPFLAGS = -MMD -MP -MF $(DEPDIR)/$(@F:.o=.d)
 
 CFLAGS =
-CPPFLAGS = -Werror -Wall ${DEPFLAGS}
+CPPFLAGS = -Werror -Wall ${DEPFLAGS} -I./${RESDIR}
 CXXFLAGS = -std=c++11
 LDLIBS = -lstdc++
 
@@ -57,6 +57,7 @@ $(BINDIR)/passphrase${EXEEXT} : $(OBJ) | $(BINDIR)
 
 
 $(OBJDIR)/passphrase.o: CXXFLAGS += -DVERSION=\"${VERSION}\" -DDATE=\"${DATE}\"
+$(OBJDIR)/passphrase.o: ${RESOURCES}
 
 $(OBJDIR)/%.o : %.cpp | $(OBJDIR) ${DEPDIR}
 	$(COMPILE.cpp) $< $(OUTPUT_OPTION)
