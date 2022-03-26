@@ -3,6 +3,10 @@
 //
 //  Generate some password phrases from dictionary words
 //
+// TODO:
+//  1. min / max password length options
+//  2. min / max word length options
+//  3. how many passwords to generate option
 
 #include <cstdio>
 #include <iostream>
@@ -78,10 +82,28 @@ string phrase(
 
 Dictionary parse_dict(const char *words, size_t size);
 
-
+///////////////////
+//
+// help
+//
+//  show help / usage message on stdout
+//
+///////////////////
 void inline help(string prog)
 {
-	cout << prog << " [-hcnavV] [-l en_CA | fr_CA | sw_TZ ]" << endl;
+	cout << endl << "Usage: " << prog << " [-hcnavV] [-l en_CA | fr_CA | sw_TZ ]" << endl;
+	cout << endl << "Generate password phrases" << endl;
+	cout << "" << endl
+	     << "  --caps             Capitalize words in the phrase" << endl
+	     << "  -c, --no-caps" << endl
+	     << "  --numbers          convert some letters to numbers" << endl
+	     << "  -n, --no-numbers" << endl
+	     << "  --alt-chars        ensure there are alternate characters" << endl
+	     << "  -a, --no-alt-chars" << endl
+	     << "  -l, --lang         set language : en_CA | fr_CA | sw_TZ" << endl
+	     << "  -V, --verbose" << endl
+		 << "  -h , --help, --usage" << endl
+	     << "  -v, --version" << endl << endl;
 }
 
 //////////////////////
@@ -94,19 +116,19 @@ int main(int argc, char *argv[])
 	string lang = "en_CA";
 
 	int ch;
-	while ((ch = getopt_long(argc, argv, "acnl:vV", opts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "acnl:vVh", opts, NULL)) != -1) {
 		switch (ch) {
 		case 'a':
-			altchars = true;
+			altchars = false;
 			break;
 		case 'c':
-			caps = true;
+			caps = false;
 			break;
 		case 'n':
-			numbers = true;
+			numbers = false;
 			break;
 		case 'v':
-			cout << "V0.01-" VERSION << " built " << DATE << endl;
+			cout << "V0.02-" VERSION << " built " << DATE << endl;
 			exit(0);
 			break;
 		case 'V':
@@ -115,6 +137,7 @@ int main(int argc, char *argv[])
 		case 'l':
 			lang = string(optarg);
 			break;
+		case 'h':
 		case '?':
 			help(basename(argv[0]));
 			exit(1);
