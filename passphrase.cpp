@@ -3,18 +3,22 @@
 //
 //  Generate some password phrases from dictionary words
 //
-// TODO:
-//  1. min / max password length options
-//  2. min / max word length options
-//  3. how many passwords to generate option
+// Also has options for:
+//  1. min / max password length
+//  2. min / max word length
+//  3. how many passwords to generate
+//  4. language - en_CA, fr_CA, and sw_TZ
+//  5. caps enforced
+//  6. number replacements
+//  7. alternate characters
 
 #include <cstdio>
 #include <iostream>
 #include <cstdint>
 #include <cctype>
-#include <cstring>
 #include <cstddef>
 #include <string>
+#include <cstring>
 #include <sstream>
 #include <deque>
 #include <random>
@@ -47,10 +51,22 @@ const RawDictionary dictionary[] = {
 	{}
 };
 
+const size_t COUNT_DEF = 5,
+	WORD_MAX_DEF = 6, 
+	WORD_MIN_DEF = 2,
+	PHRASE_MAX_DEF = 18,
+	PHRASE_MIN_DEF = 12;
+
 random_device rd;
 mt19937 gen(rd());
 
 int caps = 1, numbers = 1, altchars = 1, verbose = 0;
+
+int count = COUNT_DEF;
+size_t word_max = WORD_MAX_DEF,
+	word_min = WORD_MIN_DEF,
+	phrase_max = PHRASE_MAX_DEF,
+	phrase_min = PHRASE_MIN_DEF;
 
 static struct option opts[] = {
 	{"help",         no_argument,       0,         '?'},
@@ -61,6 +77,11 @@ static struct option opts[] = {
 	{"no-numbers",   no_argument,       &numbers,  0  },
 	{"alt-chars",    no_argument,       &altchars, 1  },
 	{"no-alt-chars", no_argument,       &altchars, 0  },
+	{"count",        required_argument, 0,        'C' },
+	{"word-max",     required_argument, 0,        'W' },
+	{"word-min",     required_argument, 0,        'w' },
+	{"length",       required_argument, 0,        'L' },
+	{"max-length",   required_argument, 0,        'x' },
 	{"lang",         required_argument, 0,         'l'},
 	{"verbose",      no_argument,       &verbose,  1  },
 	{"version",      no_argument,       0,         'v'},
@@ -94,13 +115,23 @@ void inline help(string prog)
 	cout << endl << "Usage: " << prog << " [-hcnavV] [-l en_CA | fr_CA | sw_TZ ]" << endl;
 	cout << endl << "Generate password phrases" << endl;
 	cout << "" << endl
-	     << "  --caps             Capitalize words in the phrase" << endl
+	     << "  --caps              Capitalize words in the phrase (default)" << endl
 	     << "  -c, --no-caps" << endl
-	     << "  --numbers          convert some letters to numbers" << endl
+	     << "  --numbers           convert some letters to numbers (default)" << endl
 	     << "  -n, --no-numbers" << endl
-	     << "  --alt-chars        ensure there are alternate characters" << endl
+	     << "  --alt-chars         ensure there are alternate characters (default)" << endl
 	     << "  -a, --no-alt-chars" << endl
-	     << "  -l, --lang         set language : en_CA | fr_CA | sw_TZ" << endl
+		 << "  --count <NUM>       how many to phrases generate (default = "
+		 	<< COUNT_DEF << ")" << endl
+		 << "  --length <NUM>      minimum length of the phrase (default = "
+		 	<< PHRASE_MIN_DEF << ")" << endl
+	     << "  -l, --lang          set language : en_CA | fr_CA | sw_TZ" << endl
+		 << "  --word-min <NUM>    minimum length of words in the phrase (default = "
+		 	<< WORD_MIN_DEF << ")" << endl
+		 << "  --word-max <NUM>    maximum length of words in the phrase (default = "
+		 	<< WORD_MAX_DEF << ")" << endl
+		 << "  --max-length <NUM>  maximum length of the phrase (default = "
+		 	<< PHRASE_MAX_DEF << ")" << endl
 	     << "  -V, --verbose" << endl
 		 << "  -h , --help, --usage" << endl
 	     << "  -v, --version" << endl << endl;
@@ -128,7 +159,7 @@ int main(int argc, char *argv[])
 			numbers = false;
 			break;
 		case 'v':
-			cout << "V0.02-" VERSION << " built " << DATE << endl;
+			cout << "V0.03-" VERSION << " built " << DATE << endl;
 			exit(0);
 			break;
 		case 'V':
@@ -136,6 +167,25 @@ int main(int argc, char *argv[])
 			break;
 		case 'l':
 			lang = string(optarg);
+			break;
+		case 'C': // count
+			count = strtoul(optarg, NULL, 10);
+			break;
+		case 'W': // word_max
+			word_max = strtoul(optarg, NULL, 10);
+			break;
+		case 'w': // word_min
+			word_min = strtoul(optarg, NULL, 10);
+			if (word_max < word_min)
+				word_max = word_min;
+			break;
+		case 'L': // length - phrase_min
+			phrase_min = strtoul(optarg, NULL, 10);
+			if (phrase_max < phrase_min)
+				phrase_max = phrase_min;
+			break;
+		case 'x': // max_length - phrase_max
+			phrase_max = strtoul(optarg, NULL, 10);
 			break;
 		case 'h':
 		case '?':
@@ -151,6 +201,12 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (word_min > word_max || phrase_min > phrase_max ||
+		word_min > phrase_min) {
+		cerr << "Impossible options, min > max." << endl;
+		exit(1);
+	}
+
 	if (verbose) {
 		cout << "Hello, world!\nReady for some passwords?" << endl;
 		for (auto i : dictionary) {
@@ -160,6 +216,9 @@ int main(int argc, char *argv[])
 				" characters, start = " <<
 				hex << showbase << (intptr_t)i.words << endl;
 		}
+		cout << dec << "We will generate " << count << " phrases," << endl <<
+				"Length > " << phrase_min << ", < " << phrase_max <<
+				", words > " << word_min << ", < " << word_max << endl;
 	}
 
 	const RawDictionary *working_dictionary = &dictionary[0];
@@ -202,19 +261,20 @@ int main(int argc, char *argv[])
 
 	if (verbose) {
 		cout << "Here are random words : " << endl;
-		for (int i = 0; i < 6; i++)
+		for (int i = 0; i < count; i++)
 			cout << " " << random_word( distrib, string_dict, altchars ) << endl;
 	}
 
-	if (verbose)
-		cout << "Here are random phrases : " << endl;
+	if (verbose) {
+		cout << "Here are " << count << " random phrases : " << endl;
+	}
 
 	/////////
 	//
 	//  The big reveal: a list of random phrases
 	//
 	/////////
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < count; i++)
 		cout << phrase( distrib, string_dict, caps, altchars, numbers ) << endl;
 
 	if (verbose) {
@@ -248,7 +308,7 @@ string random_word(
 		}
 	}
 	while ((want_apostrophe && (apostrophe == string::npos)) ||
-		(candidate.size() < 2 || candidate.size() > 6));
+		(candidate.length() < word_min || candidate.length() > word_max));
 
 	if (apostrophe != string::npos) {
 		char replacement = replacements[ replacement_dist(gen) ];
@@ -268,12 +328,23 @@ string phrase(
 	string p = random_word(dist, dict, false);
 
 	bool have_alt = false;
-	while (p.length() < 12) {
+	while (p.length() < phrase_min) {
 		string next = random_word(dist, dict, want_alt ^ have_alt);
 		if (cap)
 			next[0] = toupper(next[0]);
 		p += next;
 		have_alt = p.find_first_of( replacements ) != string::npos;
+
+		// Corner case - we've only got room for a word smaller than our minimum
+		//               or we just added a word that put the phrase over our limit
+		// start the search over
+		if (((phrase_min - p.length()) < word_min && p.length() < phrase_min)
+				|| p.length() > phrase_max) {
+			// cout << "Corner case, l=" << p.length() << endl;
+			p = random_word(dist, dict, false);
+			have_alt = false;
+		}
+		// cout << "p=" << p << endl;
 	}
 
 	string::size_type num_pos = string::npos;
@@ -326,7 +397,7 @@ Dictionary parse_dict(const char *words, size_t size)
 		}
 
 		if (i > size) {
-			cout << "what? i = " << i << ", size = " << size << endl;
+			cerr << "what? i = " << i << ", size = " << size << endl;
 			break;
 		}
 	}
