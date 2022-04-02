@@ -52,7 +52,7 @@ const RawDictionary dictionary[] = {
 };
 
 const size_t COUNT_DEF = 5,
-	WORD_MAX_DEF = 6, 
+	WORD_MAX_DEF = 6,
 	WORD_MIN_DEF = 2,
 	PHRASE_MAX_DEF = 18,
 	PHRASE_MIN_DEF = 12;
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 			numbers = false;
 			break;
 		case 'v':
-			cout << "V0.03-" VERSION << " built " << DATE << endl;
+			cout << "V0.04-" VERSION << " built " << DATE << endl;
 			exit(0);
 			break;
 		case 'V':
